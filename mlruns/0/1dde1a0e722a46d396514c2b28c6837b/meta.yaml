@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/kimhyungho/gitHub/khuthon/data/mlruns/0/1dde1a0e722a46d396514c2b28c6837b/artifacts
+end_time: 1746806069698
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 1dde1a0e722a46d396514c2b28c6837b
+run_name: lightgbm
+run_uuid: 1dde1a0e722a46d396514c2b28c6837b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1746806067719
+status: 3
+tags: []
+user_id: kimhyungho

@@ -38,13 +38,16 @@ def create_database():
 
         # 작물 데이터 삽입
         for crop, period in growth_periods.items():
-            print(f"작물: {crop}, 성장 기간: {period['total_days']}일")
+            # 각 작물의 성장 단계별 기간의 평균(반올림)
+            stage_days = list(period["stages"].values())
+            avg_days = round(sum(stage_days) / len(stage_days))
+            print(f"작물: {crop}, 성장 단계 평균 기간: {avg_days}일")
             cursor.execute(
                 """
                 INSERT INTO crops (crop_name, total_growth_days, created_at)
                 VALUES (?, ?, datetime('now'))
                 """,
-                (crop, period["total_days"]),
+                (crop, avg_days),
             )
             crop_id = cursor.lastrowid
 
@@ -52,10 +55,10 @@ def create_database():
             for stage_name, days in period["stages"].items():
                 cursor.execute(
                     """
-                    INSERT INTO growth_stages (crop_id, stage_name, days, created_at)
-                    VALUES (?, ?, ?, datetime('now'))
+                    INSERT INTO growth_stages (stage_name, stage_code, stage_description, days, created_at)
+                    VALUES (?, ?, ?, ?, datetime('now'))
                     """,
-                    (crop_id, stage_name, days),
+                    (stage_name, f"BBCH {stage_name}", f"{stage_name} 단계", days),
                 )
 
         # 기본 환경 조건 데이터 삽입
@@ -135,10 +138,13 @@ def create_database():
             cursor.execute(
                 """
                 INSERT INTO nutrient_conditions (
-                    crop_id, stage_id, nitrogen_min, nitrogen_max, nitrogen_avg,
+                    crop_id, stage_id, 
+                    nitrogen_min, nitrogen_max, nitrogen_avg,
                     phosphorus_min, phosphorus_max, phosphorus_avg,
-                    potassium_min, potassium_max, potassium_avg, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    potassium_min, potassium_max, potassium_avg,
+                    chlorophyll_min, chlorophyll_max, chlorophyll_avg,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             """,
                 (
                     crop_id,
@@ -152,6 +158,9 @@ def create_database():
                     row["K_min"],
                     row["K_max"],
                     row["K_avg"],
+                    row.get("chlorophyll_min", 0),  # 기본값 0으로 설정
+                    row.get("chlorophyll_max", 0),  # 기본값 0으로 설정
+                    row.get("chlorophyll_avg", 0),  # 기본값 0으로 설정
                 ),
             )
 
@@ -288,8 +297,8 @@ def insert_crop_data(conn):
         # 성장 단계 데이터 삽입
         for stage_name, days in period["stages"].items():
             cursor.execute(
-                "INSERT INTO growth_stages (crop_id, stage_name, days) VALUES (?, ?, ?)",
-                (crop_id, stage_name, days),
+                "INSERT INTO growth_stages (stage_name, stage_code, stage_description, days) VALUES (?, ?, ?, ?)",
+                (stage_name, f"BBCH {stage_name}", f"{stage_name} 단계", days),
             )
 
     conn.commit()
@@ -302,8 +311,8 @@ def insert_crop_data(conn):
 
         # 성장 단계 ID 가져오기
         cursor.execute(
-            "SELECT stage_id FROM growth_stages WHERE crop_id = ? AND stage_name = ?",
-            (crop_id, row["growth_stage"]),
+            "SELECT stage_id FROM growth_stages WHERE stage_name = ?",
+            (row["growth_stage"],),
         )
         stage_id = cursor.fetchone()[0]
 
@@ -351,18 +360,21 @@ def insert_crop_data(conn):
         cursor.execute("SELECT crop_id FROM crops WHERE crop_name = ?", (row["crop"],))
         crop_id = cursor.fetchone()[0]
         cursor.execute(
-            "SELECT stage_id FROM growth_stages WHERE crop_id = ? AND stage_name = ?",
-            (crop_id, row["growth_stage"]),
+            "SELECT stage_id FROM growth_stages WHERE stage_name = ?",
+            (row["growth_stage"],),
         )
         stage_id = cursor.fetchone()[0]
 
         cursor.execute(
             """
             INSERT INTO nutrient_conditions (
-                crop_id, stage_id, nitrogen_min, nitrogen_max, nitrogen_avg,
+                crop_id, stage_id, 
+                nitrogen_min, nitrogen_max, nitrogen_avg,
                 phosphorus_min, phosphorus_max, phosphorus_avg,
-                potassium_min, potassium_max, potassium_avg
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                potassium_min, potassium_max, potassium_avg,
+                chlorophyll_min, chlorophyll_max, chlorophyll_avg,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         """,
             (
                 crop_id,
@@ -376,6 +388,9 @@ def insert_crop_data(conn):
                 row["K_min"],
                 row["K_max"],
                 row["K_avg"],
+                row.get("chlorophyll_min", 0),  # 기본값 0으로 설정
+                row.get("chlorophyll_max", 0),  # 기본값 0으로 설정
+                row.get("chlorophyll_avg", 0),  # 기본값 0으로 설정
             ),
         )
 
@@ -384,8 +399,8 @@ def insert_crop_data(conn):
         cursor.execute("SELECT crop_id FROM crops WHERE crop_name = ?", (row["crop"],))
         crop_id = cursor.fetchone()[0]
         cursor.execute(
-            "SELECT stage_id FROM growth_stages WHERE crop_id = ? AND stage_name = ?",
-            (crop_id, row["growth_stage"]),
+            "SELECT stage_id FROM growth_stages WHERE stage_name = ?",
+            (row["growth_stage"],),
         )
         stage_id = cursor.fetchone()[0]
 
@@ -417,8 +432,8 @@ def insert_crop_data(conn):
         cursor.execute("SELECT crop_id FROM crops WHERE crop_name = ?", (row["crop"],))
         crop_id = cursor.fetchone()[0]
         cursor.execute(
-            "SELECT stage_id FROM growth_stages WHERE crop_id = ? AND stage_name = ?",
-            (crop_id, row["growth_stage"]),
+            "SELECT stage_id FROM growth_stages WHERE stage_name = ?",
+            (row["growth_stage"],),
         )
         stage_id = cursor.fetchone()[0]
 

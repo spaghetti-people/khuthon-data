@@ -1,0 +1,33 @@
+{
+    "crop_name": "rice",
+    "planting_date": "2024-01-01",
+    "daily_conditions": [
+        {
+            "day": 1,
+            "conditions": {
+                "N": 120,
+                "P": 100,
+                "K": 100,
+                "temperature": 25,
+                "humidity": 70,
+                "ph": 6.5,
+                "rainfall": 250,
+                "soil_moisture": 35,
+                "soil_type": 2,
+                "sunlight_exposure": 10,
+                "wind_speed": 8,
+                "co2_concentration": 400,
+                "organic_matter": 5,
+                "irrigation_frequency": 3,
+                "crop_density": 12,
+                "pest_pressure": 10,
+                "fertilizer_usage": 180,
+                "growth_stage": 2,
+                "urban_area_proximity": 15,
+                "water_source_type": 2,
+                "frost_risk": 20,
+                "water_usage_efficiency": 3.5
+            }
+        }
+    ]
+}
