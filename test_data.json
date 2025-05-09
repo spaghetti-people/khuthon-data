@@ -1,0 +1,226 @@
+{
+    "crop_name": "rice",
+    "planting_date": "2024-03-21",
+    "daily_conditions": [
+        {
+            "day": 1,
+            "conditions": {
+                "temperature": 22.5,
+                "humidity": 75.0,
+                "ph": 5.8,
+                "rainfall": 80.0,
+                "soil_moisture": 18.0,
+                "sunlight_exposure": 6.0,
+                "water_usage_efficiency": 2.5,
+                "N": 25.0,
+                "P": 35.0,
+                "K": 25.0,
+                "soil_type": 2.0,
+                "wind_speed": 5.0,
+                "co2_concentration": 380.0,
+                "crop_density": 8.0,
+                "pest_pressure": 30.0,
+                "urban_area_proximity": 15.0,
+                "frost_risk": 10.0
+            }
+        },
+        {
+            "day": 2,
+            "conditions": {
+                "temperature": 23.0,
+                "humidity": 78.0,
+                "ph": 5.9,
+                "rainfall": 85.0,
+                "soil_moisture": 19.0,
+                "sunlight_exposure": 6.5,
+                "water_usage_efficiency": 2.6,
+                "N": 26.0,
+                "P": 36.0,
+                "K": 26.0,
+                "soil_type": 2.0,
+                "wind_speed": 5.5,
+                "co2_concentration": 385.0,
+                "crop_density": 8.5,
+                "pest_pressure": 32.0,
+                "urban_area_proximity": 15.0,
+                "frost_risk": 8.0
+            }
+        },
+        {
+            "day": 3,
+            "conditions": {
+                "temperature": 23.5,
+                "humidity": 80.0,
+                "ph": 6.0,
+                "rainfall": 90.0,
+                "soil_moisture": 20.0,
+                "sunlight_exposure": 7.0,
+                "water_usage_efficiency": 2.7,
+                "N": 28.0,
+                "P": 38.0,
+                "K": 28.0,
+                "soil_type": 2.0,
+                "wind_speed": 6.0,
+                "co2_concentration": 390.0,
+                "crop_density": 9.0,
+                "pest_pressure": 35.0,
+                "urban_area_proximity": 16.0,
+                "frost_risk": 5.0
+            }
+        },
+        {
+            "day": 4,
+            "conditions": {
+                "temperature": 24.0,
+                "humidity": 82.0,
+                "ph": 6.1,
+                "rainfall": 95.0,
+                "soil_moisture": 21.0,
+                "sunlight_exposure": 7.5,
+                "water_usage_efficiency": 2.8,
+                "N": 30.0,
+                "P": 40.0,
+                "K": 30.0,
+                "soil_type": 2.0,
+                "wind_speed": 6.5,
+                "co2_concentration": 395.0,
+                "crop_density": 9.5,
+                "pest_pressure": 38.0,
+                "urban_area_proximity": 17.0,
+                "frost_risk": 3.0
+            }
+        },
+        {
+            "day": 5,
+            "conditions": {
+                "temperature": 24.5,
+                "humidity": 83.0,
+                "ph": 6.2,
+                "rainfall": 100.0,
+                "soil_moisture": 22.0,
+                "sunlight_exposure": 8.0,
+                "water_usage_efficiency": 2.9,
+                "N": 32.0,
+                "P": 42.0,
+                "K": 32.0,
+                "soil_type": 2.0,
+                "wind_speed": 7.0,
+                "co2_concentration": 400.0,
+                "crop_density": 10.0,
+                "pest_pressure": 40.0,
+                "urban_area_proximity": 18.0,
+                "frost_risk": 2.0
+            }
+        },
+        {
+            "day": 6,
+            "conditions": {
+                "temperature": 25.0,
+                "humidity": 84.0,
+                "ph": 6.3,
+                "rainfall": 105.0,
+                "soil_moisture": 23.0,
+                "sunlight_exposure": 8.5,
+                "water_usage_efficiency": 3.0,
+                "N": 34.0,
+                "P": 44.0,
+                "K": 34.0,
+                "soil_type": 2.0,
+                "wind_speed": 7.5,
+                "co2_concentration": 405.0,
+                "crop_density": 10.5,
+                "pest_pressure": 42.0,
+                "urban_area_proximity": 19.0,
+                "frost_risk": 1.0
+            }
+        },
+        {
+            "day": 7,
+            "conditions": {
+                "temperature": 25.5,
+                "humidity": 85.0,
+                "ph": 6.4,
+                "rainfall": 110.0,
+                "soil_moisture": 24.0,
+                "sunlight_exposure": 9.0,
+                "water_usage_efficiency": 3.1,
+                "N": 36.0,
+                "P": 46.0,
+                "K": 36.0,
+                "soil_type": 2.0,
+                "wind_speed": 8.0,
+                "co2_concentration": 410.0,
+                "crop_density": 11.0,
+                "pest_pressure": 44.0,
+                "urban_area_proximity": 20.0,
+                "frost_risk": 0.0
+            }
+        },
+        {
+            "day": 8,
+            "conditions": {
+                "temperature": 26.0,
+                "humidity": 86.0,
+                "ph": 6.5,
+                "rainfall": 115.0,
+                "soil_moisture": 25.0,
+                "sunlight_exposure": 9.5,
+                "water_usage_efficiency": 3.2,
+                "N": 38.0,
+                "P": 48.0,
+                "K": 38.0,
+                "soil_type": 2.0,
+                "wind_speed": 8.5,
+                "co2_concentration": 415.0,
+                "crop_density": 11.5,
+                "pest_pressure": 46.0,
+                "urban_area_proximity": 21.0,
+                "frost_risk": 0.0
+            }
+        },
+        {
+            "day": 9,
+            "conditions": {
+                "temperature": 26.5,
+                "humidity": 87.0,
+                "ph": 6.6,
+                "rainfall": 120.0,
+                "soil_moisture": 26.0,
+                "sunlight_exposure": 10.0,
+                "water_usage_efficiency": 3.3,
+                "N": 40.0,
+                "P": 50.0,
+                "K": 40.0,
+                "soil_type": 2.0,
+                "wind_speed": 9.0,
+                "co2_concentration": 420.0,
+                "crop_density": 12.0,
+                "pest_pressure": 48.0,
+                "urban_area_proximity": 22.0,
+                "frost_risk": 0.0
+            }
+        },
+        {
+            "day": 10,
+            "conditions": {
+                "temperature": 27.0,
+                "humidity": 88.0,
+                "ph": 6.7,
+                "rainfall": 125.0,
+                "soil_moisture": 27.0,
+                "sunlight_exposure": 10.5,
+                "water_usage_efficiency": 3.4,
+                "N": 42.0,
+                "P": 52.0,
+                "K": 42.0,
+                "soil_type": 2.0,
+                "wind_speed": 9.5,
+                "co2_concentration": 425.0,
+                "crop_density": 12.5,
+                "pest_pressure": 50.0,
+                "urban_area_proximity": 23.0,
+                "frost_risk": 0.0
+            }
+        }
+    ]
+}

@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import numpy as np
 from typing import Dict, List, Tuple
 from datetime import datetime, date, timedelta
 
@@ -10,50 +11,203 @@ class GrowthAnalyzer:
         self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()
 
+        # 성장 단계별 특징 패턴 정의
+        self.stage_patterns = {
+            "germination": {
+                "soil_moisture": {"min": 0.7, "max": 0.9},
+                "temperature": {"min": 20, "max": 25},
+                "humidity": {"min": 0.8, "max": 0.9},
+            },
+            "seedling": {
+                "soil_moisture": {"min": 0.6, "max": 0.8},
+                "temperature": {"min": 22, "max": 28},
+                "humidity": {"min": 0.7, "max": 0.85},
+            },
+            "vegetative": {
+                "soil_moisture": {"min": 0.5, "max": 0.7},
+                "temperature": {"min": 24, "max": 30},
+                "humidity": {"min": 0.6, "max": 0.8},
+            },
+            "flowering": {
+                "soil_moisture": {"min": 0.5, "max": 0.7},
+                "temperature": {"min": 25, "max": 32},
+                "humidity": {"min": 0.5, "max": 0.7},
+            },
+            "maturity": {
+                "soil_moisture": {"min": 0.4, "max": 0.6},
+                "temperature": {"min": 23, "max": 30},
+                "humidity": {"min": 0.5, "max": 0.7},
+            },
+        }
+
+    def record_sensor_data(self, crop_id: int, sensor_data: Dict) -> None:
+        """
+        센서 데이터를 기록합니다.
+        """
+        query = """
+        INSERT INTO sensor_data (
+            crop_id, temperature, humidity, ph, rainfall,
+            soil_moisture, sunlight_exposure, co2_concentration,
+            nitrogen, phosphorus, potassium,
+            irrigation_frequency, fertilizer_usage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        self.cursor.execute(
+            query,
+            (
+                crop_id,
+                sensor_data.get("temperature"),
+                sensor_data.get("humidity"),
+                sensor_data.get("ph"),
+                sensor_data.get("rainfall"),
+                sensor_data.get("soil_moisture"),
+                sensor_data.get("sunlight_exposure"),
+                sensor_data.get("co2_concentration"),
+                sensor_data.get("nitrogen"),
+                sensor_data.get("phosphorus"),
+                sensor_data.get("potassium"),
+                sensor_data.get("irrigation_frequency"),
+                sensor_data.get("fertilizer_usage"),
+            ),
+        )
+        self.conn.commit()
+
+    def determine_growth_stage(
+        self, crop_id: int, sensor_data: Dict, days_since_planting: int
+    ) -> str:
+        """
+        센서 데이터와 경과일을 기반으로 성장 단계를 판단합니다.
+        """
+        # 기본적인 시간 기반 단계 확인
+        self.cursor.execute(
+            """
+            SELECT stage_name, min_days, max_days
+            FROM growth_stages
+            WHERE ? BETWEEN min_days AND max_days
+            """,
+            (days_since_planting,),
+        )
+        time_based_stage = self.cursor.fetchone()
+
+        if not time_based_stage:
+            return "unknown"
+
+        stage_name = time_based_stage["stage_name"]
+        stage_pattern = self.stage_patterns[stage_name]
+
+        # 센서 데이터 기반 패턴 매칭
+        pattern_match_score = self._calculate_pattern_match_score(
+            sensor_data, stage_pattern
+        )
+
+        # 패턴 매칭 점수가 낮으면 이전/다음 단계 확인
+        if pattern_match_score < 0.6:
+            if days_since_planting > time_based_stage["min_days"]:
+                # 이전 단계 확인
+                self.cursor.execute(
+                    """
+                    SELECT stage_name, min_days, max_days
+                    FROM growth_stages
+                    WHERE max_days < ?
+                    ORDER BY max_days DESC
+                    LIMIT 1
+                    """,
+                    (days_since_planting,),
+                )
+                prev_stage = self.cursor.fetchone()
+                if prev_stage:
+                    prev_pattern = self.stage_patterns[prev_stage["stage_name"]]
+                    prev_score = self._calculate_pattern_match_score(
+                        sensor_data, prev_pattern
+                    )
+                    if prev_score > pattern_match_score:
+                        return prev_stage["stage_name"]
+
+            if days_since_planting < time_based_stage["max_days"]:
+                # 다음 단계 확인
+                self.cursor.execute(
+                    """
+                    SELECT stage_name, min_days, max_days
+                    FROM growth_stages
+                    WHERE min_days > ?
+                    ORDER BY min_days ASC
+                    LIMIT 1
+                    """,
+                    (days_since_planting,),
+                )
+                next_stage = self.cursor.fetchone()
+                if next_stage:
+                    next_pattern = self.stage_patterns[next_stage["stage_name"]]
+                    next_score = self._calculate_pattern_match_score(
+                        sensor_data, next_pattern
+                    )
+                    if next_score > pattern_match_score:
+                        return next_stage["stage_name"]
+
+        return stage_name
+
+    def _calculate_pattern_match_score(
+        self, sensor_data: Dict, stage_pattern: Dict
+    ) -> float:
+        """
+        센서 데이터와 단계 패턴의 일치도를 계산합니다.
+        """
+        scores = []
+
+        for condition, pattern in stage_pattern.items():
+            if condition in sensor_data:
+                value = sensor_data[condition]
+                min_val = pattern["min"]
+                max_val = pattern["max"]
+
+                if min_val <= value <= max_val:
+                    scores.append(1.0)
+                else:
+                    # 범위를 벗어난 정도에 따라 점수 감소
+                    if value < min_val:
+                        scores.append(max(0, 1 - (min_val - value) / min_val))
+                    else:
+                        scores.append(max(0, 1 - (value - max_val) / max_val))
+
+        return np.mean(scores) if scores else 0.0
+
     def analyze_growth(
-        self, crop_name: str, current_conditions: Dict, planting_date: date = None
+        self,
+        crop_name: str,
+        current_conditions: Dict,
+        planting_date: date = None,
+        current_date: date = None,
     ) -> Dict:
         """
         작물의 현재 성장 상태를 분석합니다.
-
-        Args:
-            crop_name (str): 작물 이름
-            current_conditions (Dict): 현재 환경 조건
-            planting_date (date): 파종일 (선택사항)
-
-        Returns:
-            Dict: {
-                'current_stage': str,  # 현재 성장 단계
-                'growth_progress': float,  # 현재 성장 진행도 (%)
-                'remaining_progress': float,  # 남은 성장 진행도 (%)
-                'days_since_planting': int,  # 파종 후 경과일수
-                'ideal_conditions': Dict,  # 현재 단계의 이상적인 조건
-                'condition_analysis': Dict  # 각 조건별 분석 결과
-            }
         """
-        # 작물 ID와 총 성장 기간 가져오기
+        # 작물 ID 조회
         self.cursor.execute(
-            """
-            SELECT crop_id, total_growth_days 
-            FROM crops 
-            WHERE crop_name = ?
-        """,
-            (crop_name,),
+            "SELECT crop_id FROM crops WHERE crop_name = ?", (crop_name,)
         )
         crop = self.cursor.fetchone()
         if not crop:
             raise ValueError(f"작물 '{crop_name}'을(를) 찾을 수 없습니다.")
-        crop_id, total_growth_days = crop
+        crop_id = crop["crop_id"]
 
         # 현재 날짜 기준 성장 일수 계산
-        current_date = date.today()
         if planting_date:
+            if current_date is None:
+                current_date = date.today()
             days_since_planting = (current_date - planting_date).days
+            if days_since_planting < 0:
+                raise ValueError("파종일이 현재 날짜보다 미래입니다.")
         else:
             days_since_planting = 0
 
+        # 센서 데이터 기록
+        self.record_sensor_data(crop_id, current_conditions)
+
         # 현재 성장 단계 결정
-        current_stage = self.determine_growth_stage(crop_id, days_since_planting)
+        current_stage = self.determine_growth_stage(
+            crop_id, current_conditions, days_since_planting
+        )
 
         # 현재 단계의 이상적인 조건 조회
         ideal_conditions = self.get_ideal_conditions(crop_id, current_stage)
@@ -65,29 +219,36 @@ class GrowthAnalyzer:
 
         # 성장 진행도 계산
         growth_progress = self.calculate_growth_progress(
-            days_since_planting, total_growth_days, condition_analysis
+            days_since_planting, ideal_conditions["total_days"], condition_analysis
         )
 
         # 남은 성장 진행도 계산
-        remaining_progress = 100 - growth_progress
+        remaining_progress = max(0, 100 - growth_progress)
 
         # 성장 기록 저장
-        if planting_date:
-            self.cursor.execute(
-                """
-                INSERT INTO growth_records 
-                (crop_id, planting_date, current_date, current_stage_id, growth_progress)
-                VALUES (?, ?, ?, ?, ?)
-            """,
-                (
-                    crop_id,
-                    planting_date,
-                    current_date,
-                    current_stage,
-                    growth_progress,
-                ),
+        self.cursor.execute(
+            """
+            INSERT INTO growth_records (
+                crop_id, stage_id, growth_progress, condition_score
+            ) VALUES (
+                ?, 
+                (SELECT stage_id FROM growth_stages WHERE stage_name = ?),
+                ?,
+                ?
             )
-            self.conn.commit()
+            """,
+            (
+                crop_id,
+                current_stage,
+                growth_progress,
+                (
+                    sum(condition_analysis.values()) / len(condition_analysis)
+                    if condition_analysis
+                    else 0
+                ),
+            ),
+        )
+        self.conn.commit()
 
         return {
             "current_stage": current_stage,
@@ -113,7 +274,7 @@ class GrowthAnalyzer:
             float: 성장 진행도 (%)
         """
         # 기본 진행도 (시간 기반)
-        base_progress = (days_since_planting / total_growth_days) * 100
+        base_progress = min((days_since_planting / total_growth_days) * 100, 100.0)
 
         # 조건별 가중치 계산
         condition_weights = {
@@ -162,170 +323,177 @@ class GrowthAnalyzer:
         """데이터베이스 연결을 종료합니다."""
         self.conn.close()
 
-    def determine_growth_stage(self, crop_id: int, days_since_planting: int) -> str:
-        """
-        현재 성장 단계를 결정합니다.
-
-        Args:
-            crop_id (int): 작물 ID
-            days_since_planting (int): 파종 후 경과일수
-
-        Returns:
-            str: 현재 성장 단계 ('initial', 'mid', 'late' 중 하나)
-        """
-        self.cursor.execute(
-            """
-            SELECT total_growth_days 
-            FROM crops 
-            WHERE crop_id = ?
-        """,
-            (crop_id,),
-        )
-        total_days = self.cursor.fetchone()["total_growth_days"]
-
-        # 성장 단계별 기간 비율 (초기: 20%, 중기: 50%, 후기: 30%)
-        initial_end = total_days * 0.2
-        mid_end = total_days * 0.7
-
-        if days_since_planting <= initial_end:
-            return "initial"
-        elif days_since_planting <= mid_end:
-            return "mid"
-        else:
-            return "late"
-
     def get_ideal_conditions(self, crop_id: int, stage: str) -> Dict:
         """
-        현재 단계의 이상적인 조건을 가져옵니다.
-
-        Args:
-            crop_id (int): 작물 ID
-            stage (str): 성장 단계
-
-        Returns:
-            Dict: 이상적인 조건들
+        현재 성장 단계의 이상적인 조건을 조회합니다.
         """
         # 성장 단계 ID 조회
         self.cursor.execute(
             "SELECT stage_id FROM growth_stages WHERE stage_name = ?", (stage,)
         )
-        stage_id = self.cursor.fetchone()["stage_id"]
+        stage_result = self.cursor.fetchone()
+        if not stage_result:
+            return {
+                "total_days": 100,  # 기본 성장 기간
+                "temperature": {"min": 20, "max": 30},
+                "humidity": {"min": 60, "max": 80},
+                "ph": {"min": 5.5, "max": 7.0},
+                "rainfall": {"min": 80, "max": 120},
+                "soil_moisture": {"min": 60, "max": 80},
+                "sunlight_exposure": {"min": 6, "max": 12},
+                "co2_concentration": {"min": 350, "max": 450},
+                "nitrogen": {"min": 20, "max": 40},
+                "phosphorus": {"min": 20, "max": 40},
+                "potassium": {"min": 20, "max": 40},
+                "irrigation_frequency": {"min": 1, "max": 3},
+                "fertilizer_usage": {"min": 1.0, "max": 2.0},
+            }
 
-        # 기본 조건
+        stage_id = stage_result["stage_id"]
+
+        # 기본 조건 조회
         self.cursor.execute(
             """
-            SELECT * FROM basic_conditions 
+            SELECT min_temperature, max_temperature,
+                   min_humidity, max_humidity,
+                   min_ph, max_ph,
+                   min_rainfall, max_rainfall,
+                   min_co2_concentration, max_co2_concentration
+            FROM basic_conditions
             WHERE crop_id = ? AND stage_id = ?
-        """,
+            """,
             (crop_id, stage_id),
         )
-        basic = dict(self.cursor.fetchone())
+        basic_result = self.cursor.fetchone()
 
-        # 영양분 조건
+        # 영양소 조건 조회
         self.cursor.execute(
             """
-            SELECT * FROM nutrient_conditions 
+            SELECT min_nitrogen, max_nitrogen,
+                   min_phosphorus, max_phosphorus,
+                   min_potassium, max_potassium
+            FROM nutrient_conditions
             WHERE crop_id = ? AND stage_id = ?
-        """,
+            """,
             (crop_id, stage_id),
         )
-        nutrient = dict(self.cursor.fetchone())
+        nutrient_result = self.cursor.fetchone()
 
-        # 토양 조건
+        # 토양 조건 조회
         self.cursor.execute(
             """
-            SELECT * FROM soil_conditions 
+            SELECT min_soil_moisture, max_soil_moisture
+            FROM soil_conditions
             WHERE crop_id = ? AND stage_id = ?
-        """,
+            """,
             (crop_id, stage_id),
         )
-        soil = dict(self.cursor.fetchone())
+        soil_result = self.cursor.fetchone()
 
-        # 스트레스 조건
+        # 관리 조건 조회
         self.cursor.execute(
             """
-            SELECT * FROM stress_conditions 
+            SELECT irrigation_frequency, fertilizer_usage
+            FROM management_conditions
             WHERE crop_id = ? AND stage_id = ?
-        """,
+            """,
             (crop_id, stage_id),
         )
-        stress = dict(self.cursor.fetchone())
+        management_result = self.cursor.fetchone()
+
+        # 데이터베이스에 조건이 없는 경우 기본값 사용
+        if not all([basic_result, nutrient_result, soil_result, management_result]):
+            return {
+                "total_days": 100,  # 기본 성장 기간
+                "temperature": {"min": 20, "max": 30},
+                "humidity": {"min": 60, "max": 80},
+                "ph": {"min": 5.5, "max": 7.0},
+                "rainfall": {"min": 80, "max": 120},
+                "soil_moisture": {"min": 60, "max": 80},
+                "sunlight_exposure": {"min": 6, "max": 12},
+                "co2_concentration": {"min": 350, "max": 450},
+                "nitrogen": {"min": 20, "max": 40},
+                "phosphorus": {"min": 20, "max": 40},
+                "potassium": {"min": 20, "max": 40},
+                "irrigation_frequency": {"min": 1, "max": 3},
+                "fertilizer_usage": {"min": 1.0, "max": 2.0},
+            }
+
+        # 총 성장 기간 조회
+        self.cursor.execute(
+            "SELECT total_growth_days FROM crops WHERE crop_id = ?", (crop_id,)
+        )
+        total_days = self.cursor.fetchone()["total_growth_days"]
 
         return {
-            "basic": basic,
-            "nutrient": nutrient,
-            "soil": soil,
-            "stress": stress,
+            "total_days": total_days,
+            "temperature": {
+                "min": basic_result["min_temperature"],
+                "max": basic_result["max_temperature"],
+            },
+            "humidity": {
+                "min": basic_result["min_humidity"],
+                "max": basic_result["max_humidity"],
+            },
+            "ph": {"min": basic_result["min_ph"], "max": basic_result["max_ph"]},
+            "rainfall": {
+                "min": basic_result["min_rainfall"],
+                "max": basic_result["max_rainfall"],
+            },
+            "soil_moisture": {
+                "min": soil_result["min_soil_moisture"],
+                "max": soil_result["max_soil_moisture"],
+            },
+            "co2_concentration": {
+                "min": basic_result["min_co2_concentration"],
+                "max": basic_result["max_co2_concentration"],
+            },
+            "nitrogen": {
+                "min": nutrient_result["min_nitrogen"],
+                "max": nutrient_result["max_nitrogen"],
+            },
+            "phosphorus": {
+                "min": nutrient_result["min_phosphorus"],
+                "max": nutrient_result["max_phosphorus"],
+            },
+            "potassium": {
+                "min": nutrient_result["min_potassium"],
+                "max": nutrient_result["max_potassium"],
+            },
+            "irrigation_frequency": {
+                "min": management_result["irrigation_frequency"] - 1,
+                "max": management_result["irrigation_frequency"] + 1,
+            },
+            "fertilizer_usage": {
+                "min": management_result["fertilizer_usage"] * 0.8,
+                "max": management_result["fertilizer_usage"] * 1.2,
+            },
         }
 
-    def analyze_conditions(self, current: Dict, ideal: Dict) -> Dict:
+    def analyze_conditions(
+        self, current_conditions: Dict, ideal_conditions: Dict
+    ) -> Dict:
         """
-        현재 조건을 이상적인 조건과 비교하여 분석합니다.
-
-        Args:
-            current (Dict): 현재 조건
-            ideal (Dict): 이상적인 조건
-
-        Returns:
-            Dict: 각 조건별 적합도 (0~1)
+        현재 조건과 이상적인 조건을 비교하여 점수를 계산합니다.
         """
-        analysis = {}
+        scores = {}
 
-        # 기본 조건 분석
-        basic_conditions = [
-            ("temperature", "temperature"),
-            ("humidity", "humidity"),
-            ("ph", "ph"),
-            ("rainfall", "rainfall"),
-            ("soil_moisture", "soil_moisture"),
-            ("sunlight_exposure", "sunlight_exposure"),
-        ]
+        for condition, value in current_conditions.items():
+            if condition in ideal_conditions:
+                ideal = ideal_conditions[condition]
+                min_val = ideal["min"]
+                max_val = ideal["max"]
 
-        for current_key, db_key in basic_conditions:
-            if current_key in current:
-                min_val = ideal["basic"][f"{db_key}_min"]
-                max_val = ideal["basic"][f"{db_key}_max"]
-                current_val = current[current_key]
-
-                if min_val <= current_val <= max_val:
-                    analysis[current_key] = 1.0
+                if min_val <= value <= max_val:
+                    scores[condition] = 1.0
                 else:
                     # 범위를 벗어난 정도에 따라 점수 감소
-                    if current_val < min_val:
-                        analysis[current_key] = max(
-                            0, 1 - (min_val - current_val) / min_val
-                        )
+                    if value < min_val:
+                        scores[condition] = max(0, 1 - (min_val - value) / min_val)
                     else:
-                        analysis[current_key] = max(
-                            0, 1 - (current_val - max_val) / max_val
-                        )
+                        scores[condition] = max(0, 1 - (value - max_val) / max_val)
 
-        # 영양분 조건 분석
-        nutrient_conditions = [
-            ("N", "nitrogen"),
-            ("P", "phosphorus"),
-            ("K", "potassium"),
-        ]
-
-        nutrient_score = 0
-        for current_key, db_key in nutrient_conditions:
-            if current_key in current:
-                min_val = ideal["nutrient"][f"{db_key}_min"]
-                max_val = ideal["nutrient"][f"{db_key}_max"]
-                current_val = current[current_key]
-
-                if min_val <= current_val <= max_val:
-                    nutrient_score += 1
-                else:
-                    # 범위를 벗어난 정도에 따라 점수 감소
-                    if current_val < min_val:
-                        nutrient_score += max(0, 1 - (min_val - current_val) / min_val)
-                    else:
-                        nutrient_score += max(0, 1 - (current_val - max_val) / max_val)
-
-        analysis["nutrients"] = nutrient_score / len(nutrient_conditions)
-
-        return analysis
+        return scores
 
 
 # 사용 예시
